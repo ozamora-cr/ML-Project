@@ -1,0 +1,110 @@
+---
+title: "Practical Machine Learning Course"
+author: "O. Zamora"
+date: "18/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caret)
+library(rpart.plot)
+library(rattle)
+
+```
+
+### Overview
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+### Exploratory Analysis
+
+```{r }
+# environment
+library(caret)
+library(rpart.plot)
+library(rattle)
+
+```
+#### Data preparation
+
+Load training and test data source. The training dataset is splited in 70% of the data training and 30% for testing
+
+```{r }
+trainData <- read.csv('./pml-training.csv', header=T)
+testData <- read.csv('./pml-testing.csv', header=T)
+
+set.seed(3433)
+
+inTrain <-createDataPartition(trainData$classe, p=0.7, list=FALSE)
+training <- trainData[inTrain,]
+testing <- trainData[-inTrain,]
+dim(training)
+dim(testing)
+
+```
+
+Cleaning data sets (remove NA values) and the Near Zero Variance variables are removed. With this reduce the number of variables
+
+```{r }
+# near zero variance
+NZV <- nearZeroVar(training)
+training <- training[, -NZV]
+testing  <- testing[, -NZV]
+dim(training)
+dim(testing)
+
+
+# remove NA
+withNA <- sapply(training, function(x) mean(is.na(x))) > 0.95
+training <- training[, withNA==FALSE]
+testing <- testing[, withNA==FALSE]
+
+# remove identification
+training <- training[, -(1:5)]
+testing  <- testing[, -(1:5)]
+
+dim(training)
+dim(testing)
+
+```
+
+### Decision Tree Model
+
+```{r }
+# model fit
+set.seed(3433)
+modFitTree <- rpart(classe ~ ., data=training, method="class")
+fancyRpartPlot(modFitTree)
+
+```
+
+```{r }
+# predicting with decision tree model
+predictTree <- predict(modFitTree, newdata=testing, type="class")
+confusionMatrix(table(predictTree, testing$classe))
+
+```
+
+### Random Forest Model
+
+```{r }
+# model fit
+set.seed(3433)
+controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+modFitForest <- train(classe ~ ., data=training, method="rf", trControl=controlRF)
+modFitForest$finalModel
+
+```
+
+```{r }
+# predicting with random forest model
+predictForest <- predict(modFitForest, newdata=testing)
+confusionMatrix(table(predictForest, testing$classe))
+
+```
+### Applying models to testing data
+
+From de confusion matrix we see that Random Forest Model es very accurate, about 99%, while Decision Tree Model 72%.
+
+
